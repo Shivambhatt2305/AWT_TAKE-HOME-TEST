@@ -1,49 +1,44 @@
-const crypto = require('crypto');
-const User = require('../../domain/entities/User');
+const User = require('../database/models/User');
 
 class UserRepository {
-  constructor() {
-    this.users = [];
-  }
-
   async create(userData) {
-    const user = new User(
-      crypto.randomUUID(),
-      userData.username,
-      userData.email,
-      userData.password,
-      userData.role
-    );
-    this.users.push(user);
-    return user;
+    const user = new User(userData);
+    await user.save();
+    return this._formatUser(user);
   }
 
   async findByEmail(email) {
-    return this.users.find(u => u.email === email);
+    const user = await User.findOne({ email });
+    return user ? this._formatUser(user) : null;
   }
 
   async findById(id) {
-    return this.users.find(u => u.id === id);
+    const user = await User.findById(id);
+    return user ? this._formatUser(user) : null;
   }
   
   async findAll() {
-    return this.users;
+    const users = await User.find();
+    return users.map(user => this._formatUser(user));
   }
 
   async update(id, data) {
-    const index = this.users.findIndex(u => u.id === id);
-    if (index === -1) return null;
-    this.users[index] = { ...this.users[index], ...data };
-    return this.users[index];
+    const user = await User.findByIdAndUpdate(id, data, { new: true });
+    return user ? this._formatUser(user) : null;
   }
 
   async delete(id) {
-    const index = this.users.findIndex(u => u.id === id);
-    if (index === -1) return false;
-    this.users.splice(index, 1);
-    return true;
+    const result = await User.findByIdAndDelete(id);
+    return result != null;
+  }
+
+  // Helper to map _id to id so use cases don't break
+  _formatUser(userDoc) {
+    // Return lean object
+    const obj = userDoc.toObject();
+    obj.id = obj._id.toString();
+    return obj;
   }
 }
 
-// Export a singleton instance
 module.exports = new UserRepository();

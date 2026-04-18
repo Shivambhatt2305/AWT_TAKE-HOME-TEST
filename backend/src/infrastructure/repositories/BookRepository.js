@@ -1,44 +1,51 @@
-const crypto = require('crypto');
-const Book = require('../../domain/entities/Book');
+const Book = require('../database/models/Book');
 
 class BookRepository {
-  constructor() {
-    this.books = [];
-  }
-
   async create(bookData) {
-    const book = new Book(
-      crypto.randomUUID(),
-      bookData.title,
-      bookData.author,
-      bookData.isbn,
-      bookData.copiesAvailable,
-      bookData.totalCopies
-    );
-    this.books.push(book);
-    return book;
+    const book = new Book(bookData);
+    await book.save();
+    return this._formatBook(book);
   }
 
   async findAll() {
-    return this.books;
+    const books = await Book.find();
+    return books.map(b => this._formatBook(b));
   }
 
   async findById(id) {
-    return this.books.find(b => b.id === id);
+    const book = await Book.findById(id);
+    return book ? this._formatBook(book) : null;
   }
 
   async update(id, data) {
-    const index = this.books.findIndex(b => b.id === id);
-    if (index === -1) return null;
-    this.books[index] = { ...this.books[index], ...data };
-    return this.books[index];
+    const book = await Book.findByIdAndUpdate(id, data, { new: true });
+    return book ? this._formatBook(book) : null;
   }
 
   async delete(id) {
-    const index = this.books.findIndex(b => b.id === id);
-    if (index === -1) return false;
-    this.books.splice(index, 1);
-    return true;
+    const result = await Book.findByIdAndDelete(id);
+    return result != null;
+  }
+
+  // Specific query logic moved here
+  async checkBookAvailability(id) {
+    const book = await Book.findById(id);
+    if (!book) return false;
+    return book.copiesAvailable > 0;
+  }
+
+  async updateBookStockOnIssue(id) {
+    return await Book.findByIdAndUpdate(id, { $inc: { copiesAvailable: -1 } }, { new: true });
+  }
+
+  async updateBookStockOnReturn(id) {
+    return await Book.findByIdAndUpdate(id, { $inc: { copiesAvailable: 1 } }, { new: true });
+  }
+
+  _formatBook(doc) {
+    const obj = doc.toObject();
+    obj.id = obj._id.toString();
+    return obj;
   }
 }
 

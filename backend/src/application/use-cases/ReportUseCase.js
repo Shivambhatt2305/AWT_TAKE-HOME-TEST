@@ -3,20 +3,7 @@ const bookRepository = require('../../infrastructure/repositories/BookRepository
 
 class ReportUseCase {
   async getOverdueBooks() {
-    const transactions = await transactionRepository.findAll();
-    const currentDate = new Date();
-    
-    const overdue = transactions.filter(t => {
-      const dueDate = new Date(t.dueDate);
-      return t.status === 'issued' && currentDate > dueDate;
-    });
-
-    // Populate book data
-    for (let t of overdue) {
-      t.book = await bookRepository.findById(t.bookId);
-    }
-    
-    return overdue;
+    return await transactionRepository.findOverdueTransactions();
   }
 
   async getPopularBooks() {

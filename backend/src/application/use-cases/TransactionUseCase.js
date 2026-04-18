@@ -14,14 +14,14 @@ class TransactionUseCase {
     const transaction = await transactionRepository.create({
       userId,
       bookId,
-      issueDate: issueDate.toISOString(),
-      dueDate: dueDate.toISOString(),
+      issueDate: issueDate,
+      dueDate: dueDate,
       status: 'issued',
       fine: 0
     });
 
-    // Update book inventory
-    await bookRepository.update(bookId, { copiesAvailable: book.copiesAvailable - 1 });
+    // Atomic update book inventory
+    await bookRepository.updateBookStockOnIssue(bookId);
 
     return transaction;
   }
@@ -56,15 +56,14 @@ class TransactionUseCase {
     }
 
     const updatedTransaction = await transactionRepository.update(transactionId, {
-      returnDate: returnDate.toISOString(),
+      returnDate: returnDate,
       status: 'returned',
       fine
     });
 
-    // Update book inventory
-    const book = await bookRepository.findById(transaction.bookId);
-    if (book) {
-      await bookRepository.update(book.id, { copiesAvailable: book.copiesAvailable + 1 });
+    // Atomic update book inventory
+    if (transaction.bookId) {
+      await bookRepository.updateBookStockOnReturn(transaction.bookId);
     }
 
     return updatedTransaction;
