@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
 const logger = require('./infrastructure/logging/logger');
 
 // Routes
@@ -13,16 +15,31 @@ const reportRoutes = require('./presentation/routes/reportRoutes');
 
 const app = express();
 
-// Security and middleware
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+  optionsSuccessStatus: 204
+};
+
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
-// Global logging middleware
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.url}`);
-  next();
+// Express Rate Limit for Security
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes'
 });
+app.use('/api', limiter);
+
+// Morgan integration to Winston
+app.use(morgan('combined', {
+  stream: {
+    write: (message) => logger.info(message.trim())
+  }
+}));
 
 // API Routes
 app.use('/api/auth', authRoutes);
